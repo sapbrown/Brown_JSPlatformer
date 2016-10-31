@@ -4,10 +4,11 @@
 .background td { padding: 0;          }
 .lava          { background: rgb(250, 99, 35); }
 .wall          { background: rgb(136, 109, 161);   }
-.floater	   { background: rgb(235, 252, 249); }
+.cloud	   { background: rgb(235, 252, 249); }
 
 .actor  { position: absolute;  }
 .player { background: rgb(64, 64, 64); }
+.coin{background: rgb(241,229,89); }
 
 .game {
   overflow: hidden;

@@ -1,3 +1,8 @@
+var actorChars = {
+	'@': Player,
+	'o': Coin,
+	'y': Cloud
+};
 function Level(plan) {
   // Use the length of a single row to set the width of the level
   this.width = plan[0].length;
@@ -7,6 +12,7 @@ function Level(plan) {
 
   // Store the individual tiles in our own, separate array
   this.grid = [];
+  this.actors = [];
 
   // Loop through each row in the plan, creating an array in our grid
   for (var y = 0; y < this.height; y++) {
@@ -19,9 +25,9 @@ function Level(plan) {
 
       var ch = line[x], fieldType = null;
       // Use if and else to handle the three cases
-      if (ch==='@')
-        // Create a new player at that grid position.
-        this.player = new Player(new Vector(x, y));
+      var Actor = actorChars[ch];
+	  if (Actor) {
+		  this.actors.push(new Actor(new Vector(x,y), ch)); }
       else if (ch == "x")
         fieldType = "wall";
       // Because there is a third case (space ' '), use an "else if" instead of "else"
@@ -34,7 +40,25 @@ function Level(plan) {
     // Push the entire row onto the array of rows.
     this.grid.push(gridLine);
   }
+  this.player = this.actors.filter(function(actor) {
+	  return actor.type == "player";
+  })[0];
 }
+
+function Coin(pos) {
+	this.basePos = this.pos = pos.plus(new Vector(0.2, 0.1));
+	this.size = new Vector(0.6, 0.6);
+	this.wobble = Math.random() * Math.PI * 2;
+}
+Coin.prototype.type = 'coin';
+
+function Cloud(pos) {
+	this.basePos = this.pos = pos.plus(new Vector(0.2, 0.1));
+	this.size = new Vector(0.6, 0.6);
+	this.wobble = Math.random() * Math.PI * 2;
+}
+Cloud.prototype.type = 'cloud';
+
 
 function Vector(x, y) {
   this.x = x; this.y = y;
@@ -102,25 +126,26 @@ DOMDisplay.prototype.drawBackground = function() {
   return table;
 };
 
-// Draw the player agent
-DOMDisplay.prototype.drawPlayer = function() {
+// Draw the actors
+DOMDisplay.prototype.drawActors = function() {
   // Create a new container div for actor dom elements
   var wrap = elt("div");
 
-  var actor = this.level.player;
-  var rect = wrap.appendChild(elt("div",
-                                    "actor " + actor.type));
-  rect.style.width = actor.size.x * scale + "px";
-  rect.style.height = actor.size.y * scale + "px";
-  rect.style.left = actor.pos.x * scale + "px";
-  rect.style.top = actor.pos.y * scale + "px";
+  this.level.actors.forEach(function(actor) {
+	  var rect = wrap.appendChild(elt("div",
+										"actor " + actor.type));
+	  rect.style.width = actor.size.x * scale + "px";
+	  rect.style.height = actor.size.y * scale + "px";
+	  rect.style.left = actor.pos.x * scale + "px";
+	  rect.style.top = actor.pos.y * scale + "px";
+  });
   return wrap;
 };
 
 DOMDisplay.prototype.drawFrame = function() {
   if (this.actorLayer)
     this.wrap.removeChild(this.actorLayer);
-  this.actorLayer = this.wrap.appendChild(this.drawPlayer());
+  this.actorLayer = this.wrap.appendChild(this.drawActors());
   this.scrollPlayerIntoView();
 };
 
@@ -169,19 +194,44 @@ Level.prototype.obstacleAt = function(pos, size) {
 	}
 };
 
+Level.prototype.actorAt = function(actor) {
+	for (var i = 0; i < this.actors.length; i++) {
+		var other = this.actors[i];
+		if (other != actor &&
+			actor.pos.x + actor.size.x > other.pos.x &&
+			actor.pos.x < other.pos.x + other.size.x &&
+			actor.pos.y + actor.pos.y > other.pos.y &&
+			actor.pos.y < other.pos.y + other.size.y)
+			return other;
+	}
+};
 // Update simulation each step based on keys & step size
 Level.prototype.animate = function(step, keys) {
 
   // Ensure each is maximum 100 milliseconds 
   while (step > 0) {
     var thisStep = Math.min(step, maxStep);
-      this.player.act(thisStep, this, keys);
+		this.actors.forEach(function(actor) {
+			actor.act(thisStep, this, keys);
+		}, this);
    // Do this by looping across the step size, subtracing either the
    // step itself or 100 milliseconds
     step -= thisStep;
   }
 };
 
+var wobbleSpeed = 8;
+var wobbleDist = 0.07;
+Coin.prototype.act = function(step) {
+	this.wobble += step * wobbleSpeed;
+	var wobblePos = Math.sin(this.wobble) * wobbleDist;
+	this.post - this.basePos.plus(new Vector(0, wobblePos));
+};
+Cloud.prototype.act = function(step) {
+	this.wobble += step * wobbleSpeed;
+	var wobblePos = Math.sin(this.wobble) * wobbleDist;
+	this.post - this.basePos.plus(new Vector(0, wobblePos));
+};
 var maxStep = 0.05;
 
 var playerXSpeed = 1;
@@ -210,7 +260,7 @@ Player.prototype.moveX = function(step, level, keys) {
 };
 
 var gravity = 40;
-var jumpSpeed = 13;
+var jumpSpeed = 16;
 var playerYSpeed = 7;
 
 Player.prototype.moveY = function(step, level, keys) {
@@ -238,6 +288,23 @@ Player.prototype.moveY = function(step, level, keys) {
 Player.prototype.act = function(step, level, keys) {
   this.moveX(step, level, keys);
   this.moveY(step, level, keys);
+  
+  var otherActor = level.actorAt (this);
+  if (otherActor)
+	  level.playerTouched(otherActor.type, otherActor);
+};
+
+Level.prototype.playerTouched = function(type, actor) {
+	if (type == 'coin') {
+		this.actors = this.actors.filter(function(other) {
+			return other != actor;
+		});
+	}
+	else if (type == 'cloud') {
+		this.actors = this.actors.filter(function(other) {
+			return other != actor;
+		});
+	}
 };
 
 
