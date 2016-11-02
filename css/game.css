@@ -4,12 +4,14 @@
 .background td { padding: 0;          }
 .lava          { background: rgb(250, 99, 35); }
 .wall          { background: rgb(136, 109, 161);   }
-.cloud	   { background: rgb(235, 252, 249); }
 
 .actor  { position: absolute;  }
 .player { background: rgb(64, 64, 64); }
 .coin{background: rgb(241,229,89); }
+.vplat	   { background: rgb(136, 109, 161); }
+.hplat	   { background: rgb(136, 109, 161); }
 
+.info p{ display: inline-block;}
 .game {
   overflow: hidden;
   max-width: 600px;
