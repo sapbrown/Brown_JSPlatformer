@@ -1,15 +1,32 @@
-.background    { background: rgb(47, 222, 184);
-                 table-layout: fixed;
-                 border-spacing: 0;   }
-.background td { padding: 0;          }
+.background1    { background: rgb(47, 222, 184);
+				  table-layout: fixed;
+				  border-spacing: 0;}
+.background2    { background: rgb(24, 154, 126);
+				  table-layout: fixed;
+				  border-spacing: 0;   }
+.background3    { background: linear-gradient(rgb(24, 154, 126),
+											  rgb(15, 97, 79), 
+											  rgb(12, 74, 60),
+											  rgb(191, 93, 27));
+				  table-layout: fixed;
+				  border-spacing: 0;   }
+.background4	{ background: linear-gradient(rgb(250, 99, 35),
+											  rgb(250, 160, 35), 
+											  rgb(250, 211, 35),
+											  rgb(250, 250, 35));
+				  table-layout: fixed;
+				  border-spacing: 0;   }
 .lava          { background: rgb(250, 99, 35); }
 .wall          { background: rgb(136, 109, 161);   }
+.tar {background: rgb(92,67,24);}		
 
 .actor  { position: absolute;  }
 .player { background: rgb(64, 64, 64); }
-.coin{background: rgb(241,229,89); }
-.vplat	   { background: rgb(136, 109, 161); }
-.hplat	   { background: rgb(136, 109, 161); }
+.coin { background: rgb(219,219,4); }
+.powerJump {background: rgb(6, 130, 8); }
+.powerSpeed {background: rgb(6, 121, 130); }
+.goal { background:  rgb(47, 222, 184); 
+        opacity: 0.0;}
 
 .info p{ display: inline-block;}
 .game {
@@ -24,4 +41,12 @@
 }
 .won .player {
   box-shadow: -4px -7px 8px rgb(255, 255, 77), 4px -7px 8px rgb(255, 255, 77);
+}
+
+.jumper .player {
+  background: rgb(6, 130, 8);
+}
+
+.speeder .player {
+  background: rgb(6, 121, 130);
 }

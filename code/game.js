@@ -2,10 +2,13 @@
 var actorChars = {
   "@": Player,
   "o": Coin, // A coin will wobble up and down
-  "=": Lava, "|": Lava, "v": Lava  
+  "y": Goal,
+  "=": Lava, "|": Lava, "v": Lava,
+  "J": PowerJump, "S": PowerSpeed
 };
 
-function Level(plan) {
+function Level(plan, whatLevel) {
+  this.currentLevel = whatLevel + 1;
   // Use the length of a single row to set the width of the level
   this.width = plan[0].length;
   // Use the number of rows to set the height
@@ -38,6 +41,8 @@ function Level(plan) {
       // Because there is a third case (space ' '), use an "else if" instead of "else"
       else if (ch == "!")
         fieldType = "lava";
+	  else if (ch == "r")
+		fieldType = "tar";
 
       // "Push" the fieldType, which is a string, onto the gridLine array (at the end).
       gridLine.push(fieldType);
@@ -139,6 +144,30 @@ function Coin(pos) {
 }
 Coin.prototype.type = "coin";
 
+function Goal(pos) {
+  this.pos = pos.plus(new Vector(0, 0));
+  this.size = new Vector(1, 1);
+}
+Goal.prototype.type = "goal";
+
+var hasPowerJump = false;
+function PowerJump(pos) {
+  this.basePos = this.pos = pos.plus(new Vector(0.2, 0.1));
+  this.size = new Vector(0.6, 0.6);
+  // Make it go back and forth in a sine wave.
+  this.wobble = Math.random() * Math.PI * 2;
+}
+PowerJump.prototype.type = "powerJump";
+
+var hasPowerSpeed = false;
+function PowerSpeed(pos) {
+  this.basePos = this.pos = pos.plus(new Vector(0.2, 0.1));
+  this.size = new Vector(0.6, 0.6);
+  // Make it go back and forth in a sine wave.
+  this.wobble = Math.random() * Math.PI * 2;
+}
+PowerSpeed.prototype.type = "powerSpeed";
+
 function Lava(pos, ch) {
   this.pos = pos;
   this.size = new Vector(1, 1);
@@ -173,7 +202,7 @@ function DOMDisplay(parent, level) {
   this.level = level;
 
   // In this version, we only have a static background.
-  this.wrap.appendChild(this.drawBackground());
+  this.wrap.appendChild(this.drawBackground(level.currentLevel));
 
   // Keep track of actors
   this.actorLayer = null;
@@ -182,8 +211,8 @@ function DOMDisplay(parent, level) {
   this.drawFrame();
 }
 
-DOMDisplay.prototype.drawBackground = function() {
-  var table = elt("table", "background");
+DOMDisplay.prototype.drawBackground = function(currentLevel) {
+  var table = elt("table", "background" + currentLevel);
   table.style.width = this.level.width * scale + "px";
 
   // Assign a class to new row element directly from the string from
@@ -216,6 +245,8 @@ DOMDisplay.prototype.drawActors = function() {
 };
 
 DOMDisplay.prototype.drawFrame = function() {
+  document.getElementById("score").innerHTML = coinScore;
+  document.getElementById("total").innerHTML = totalScore;
   if (this.actorLayer)
     this.wrap.removeChild(this.actorLayer);
   this.actorLayer = this.wrap.appendChild(this.drawActors());
@@ -253,10 +284,14 @@ DOMDisplay.prototype.scrollPlayerIntoView = function() {
 // Remove the wrap element when clearing the display
 // This will be garbage collected
 DOMDisplay.prototype.clear = function() {
+  clearInterval(myInterval);
+  coinScore = 0;
+  hasPowerJump = false;
+  hasPowerSpeed = false;
   this.wrap.parentNode.removeChild(this.wrap);
 };
 
-//===================COLLISION DETECTION===================================================
+//===================STATIC COLLISION===================================================
 // Return the first obstacle found given a size and position.
 Level.prototype.obstacleAt = function(pos, size) {
   // Find the "coordinate" of the tile representing left bound
@@ -343,12 +378,40 @@ Coin.prototype.act = function(step) {
   this.pos = this.basePos.plus(new Vector(0, wobblePos));
 };
 
+Goal.prototype.act = function(step) {
+
+};
+
+PowerJump.prototype.act = function(step) {
+  this.wobble += step * wobbleSpeed;
+  var wobblePos = Math.sin(this.wobble) * wobbleDist;
+  this.pos = this.basePos.plus(new Vector(0, wobblePos));
+};
+
+PowerSpeed.prototype.act = function(step) {
+  this.wobble += step * wobbleSpeed;
+  var wobblePos = Math.sin(this.wobble) * wobbleDist;
+  this.pos = this.basePos.plus(new Vector(0, wobblePos));
+};
+
+
 //===================PLAYER MOVEMENT===================================================
 var playerXSpeed = 7;
+var powSpeed = 7;
 Player.prototype.moveX = function(step, level, keys) {
   this.speed.x = 0;
-  if (keys.left) this.speed.x -= playerXSpeed;
-  if (keys.right) this.speed.x += playerXSpeed;
+  if (keys.left) {
+	  if (!hasPowerSpeed)
+		this.speed.x -= playerXSpeed;
+	  else
+		this.speed.x -= (playerXSpeed+powSpeed);
+  }
+  if (keys.right) {
+	  if (!hasPowerSpeed)
+		this.speed.x += playerXSpeed;
+	  else
+		this.speed.x += playerXSpeed+powSpeed;
+  }
 
   var motion = new Vector(this.speed.x * step, 0);
   // Find out where the player character will be in this frame
@@ -364,7 +427,9 @@ Player.prototype.moveX = function(step, level, keys) {
 };
 
 var gravity = 30;
-var jumpSpeed = 17;
+var jumpSpeed = 15;
+var powJump = 7;
+var inTar = false;
 Player.prototype.moveY = function(step, level, keys) {
   // Accelerate player downward (always)
   this.speed.y += step * gravity;
@@ -376,8 +441,12 @@ Player.prototype.moveY = function(step, level, keys) {
   if (obstacle) {
     level.playerTouched(obstacle);
     if (keys.up && this.speed.y > 0){
-	  playerOnPlat = false;
-      this.speed.y = -jumpSpeed;
+	  if (inTar)
+		this.speed.y = -5;
+	  else if (!hasPowerJump)
+		this.speed.y = -jumpSpeed;
+	  else
+		this.speed.y = -(jumpSpeed+powJump);
 	}
     else
       this.speed.y = 0;
@@ -401,30 +470,63 @@ Player.prototype.act = function(step, level, keys) {
     this.pos.y += step;
     this.size.y -= step;
   }
+  
+  if (level.status == "won") {
+    this.pos.y += step;
+    this.size.y -= step * 2;
+  }
 };
 
-Level.prototype.playerTouched = function(type, actor) {
-
+var coinScore = 0;
+var totalScore = 0;
+//===================ACTOR COLLISION===================================================
+Level.prototype.playerTouched = function(type, actor, player) {
+	
+	if (type == "tar") {
+		jumpSpeed = 10;
+		playerXSpeed = 2;
+	}
+	else {
+		jumpSpeed = 15;
+		playerXSpeed = 7;
+	}
   // if the player touches lava and the player hasn't won
   // Player loses
-  if (type == "lava" && this.status == null) {
+  if (type == "lava" && this.status != "lost" && this.status != "won") {
     this.status = "lost";
     this.finishDelay = 1;
-  } else if (type == "coin") {
-    this.actors = this.actors.filter(function(other) {
-      return other != actor;
+  }	else if (type == "coin") {
+	  coinScore++;
+      this.actors = this.actors.filter(function(other) {
+        return other != actor;
     });
     // If there aren't any coins left, player wins
-    if (!this.actors.some(function(actor) {
-           return actor.type == "coin";
-         })) {
-      this.status = "won";
-      this.finishDelay = 1;
-    }
-  } else if (type == "vplat") {
-    playerOnPlat = true;
-  } else
-	  playerOnPlat = false;
+    // if (!this.actors.some(function(actor) {
+           // return actor.type == "coin";
+         // })) {
+      // this.status = "won";
+      // this.finishDelay = 1;
+  } else if (type == "goal") {
+	  if (this.status != "won")
+		  totalScore += coinScore;
+	  this.status = "won";
+	  this.finishDelay = 1;
+  }
+	else if (type == "powerJump") {
+	  hasPowerJump = true;
+	  hasPowerSpeed = false;
+	  this.status = "jumper";
+	  this.actors = this.actors.filter(function(other) {
+		return other != actor;
+		})
+  } else if (type == "powerSpeed") {
+	  hasPowerSpeed = true;
+	  hasPowerJump = false;
+	  this.status = "speeder";
+	  this.actors = this.actors.filter(function(other) {
+		return other != actor;
+		})
+  }
 };
 
 //===================INPUT DETECTION===================================================
@@ -488,8 +590,8 @@ function runLevel(level, Display, andThen) {
     level.animate(step, arrows);
     display.drawFrame(step);
     if (level.isFinished()) {
-	  clearInterval(myInterval);
       display.clear();
+	  hasPowerJump = false;
       if (andThen)
         andThen(level.status);
       return false;
@@ -501,14 +603,14 @@ function runGame(plans, Display) {
   function startLevel(n) {
     // Create a new level using the nth element of array plans
     // Pass in a reference to Display function, DOMDisplay (in index.html).
-    runLevel(new Level(plans[n]), Display, function(status) {
+    runLevel(new Level(plans[n], n), Display, function(status) {
       if (status == "lost") {
         startLevel(n);
 	  }
       else if (n < plans.length - 1)
         startLevel(n + 1);
       else
-        console.log("You win!");
+        document.getElementById("youwin").innerHTML = "You Win! Reload and Try again to beat your highscore!";
     });
   }
   startLevel(0);
